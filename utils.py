@@ -50,6 +50,8 @@ def get_status_color(status):
         return cyan(status)
     elif status == "Background":
         return yellow(status)
+    elif status == "Kicked":
+        return red(bold(status))  # Warna merah dan bold untuk kicked
     else:
         return status
 
