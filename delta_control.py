@@ -1,6 +1,6 @@
 import time
 from adb_utils import start_app, tap, input_text, press_keycode, get_clipboard, set_clipboard, run, run_root, wait_app, is_running, is_foreground, get_foreground_app, dump_ui, get_username_from_prefs
-from ui_automator import find, find_edit, find_btn, get_username_from_ui, is_in_game, is_in_lobby, is_delta_visible
+from ui_automator import find, find_edit, find_btn, get_username_from_ui, is_in_game, is_in_lobby, is_delta_visible, is_disconnected_screen
 from key_fetcher import get_key
 
 def wait_delta(pkg, timeout=30):
@@ -39,6 +39,9 @@ def get_status(pkg):
     if not is_running(pkg):
         return "Offline"
     if is_foreground(pkg):
+        # Deteksi layar disconnect terlebih dahulu
+        if is_disconnected_screen():
+            return "Kicked"
         if is_in_game():
             return "In-Game"
         if is_in_lobby():
@@ -54,6 +57,16 @@ def get_username(pkg):
     if uname2:
         return uname2
     return "Unknown"
+
+def rejoin(pkg, place_id):
+    """Fungsi khusus untuk rejoin tanpa meminta key lagi"""
+    print(f"[Rejoin] Membuka {pkg} ke place {place_id}")
+    run(f"am start -a android.intent.action.VIEW -d 'roblox://placeId={place_id}' {pkg}")
+    wait_app(pkg, 10)
+    time.sleep(3)
+    # Tunggu hingga delta muncul atau game loading
+    wait_delta(pkg, 20)
+    return get_username(pkg)
 
 def full_process(pkg, place_id, token, channel_id):
     print(f"\n[Delta] === {pkg} ===")
