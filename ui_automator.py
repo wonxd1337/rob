@@ -55,3 +55,22 @@ def is_in_lobby():
         if find(elem):
             return True
     return False
+
+def is_disconnected_screen():
+    """
+    Deteksi apakah sedang berada di layar disconnect/kicked.
+    Cari tombol Reconnect dan/atau teks Disconnected.
+    """
+    xml = dump_ui()
+    # Cari tombol Reconnect (paling khas)
+    if "Reconnect" in xml:
+        return True
+    # Atau jika ada "Disconnected" dan "Leave" bersamaan (lebih aman)
+    if "Disconnected" in xml and "Leave" in xml:
+        return True
+    # Tambahan kata kunci untuk berbagai jenis error
+    keywords = ["connection lost", "disconnected", "kicked", "error code"]
+    for kw in keywords:
+        if kw.lower() in xml.lower():
+            return True
+    return False
