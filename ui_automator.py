@@ -63,13 +63,13 @@ def is_disconnected_screen():
     """
     xml = dump_ui()
     # Cari tombol Reconnect (paling khas)
-    if "Reconnect" in xml:
+    if "Hubungkan Kembali" in xml:
         return True
     # Atau jika ada "Disconnected" dan "Leave" bersamaan (lebih aman)
-    if "Disconnected" in xml and "Leave" in xml:
+    if "Hubungan Kembali" in xml and "Keluar" in xml:
         return True
     # Tambahan kata kunci untuk berbagai jenis error
-    keywords = ["connection lost", "disconnected", "kicked", "error code"]
+    keywords = ["Koneksi Terputus", "Disconnected", "Kicked", "Error Code"]
     for kw in keywords:
         if kw.lower() in xml.lower():
             return True
