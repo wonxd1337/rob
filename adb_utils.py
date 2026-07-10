@@ -106,8 +106,9 @@ def get_packages_by_prefix(prefix):
     """
     out = run_root(f"pm list packages | grep '{prefix}'")
     packages = []
-    for line in out.splitlines():
-        if line.startswith("package:"):
-            pkg = line.replace("package:", "").strip()
-            packages.append(pkg)
+    if out:
+        for line in out.splitlines():
+            if line.startswith("package:"):
+                pkg = line.replace("package:", "").strip()
+                packages.append(pkg)
     return packages

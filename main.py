@@ -81,25 +81,33 @@ def input_packages(config):
         prefix = input("Prefix Package (com.roblox): ").strip()
         if not prefix:
             print_error("[!] Prefix cannot empty.")
-            clear_screen(delay=1)
+            time.sleep(1)  # tambahkan delay agar pesan terbaca
+            clear_screen()
             return
+        print_info(f"Searching for packages with prefix: {prefix}...")
         found = get_packages_by_prefix(prefix)
         if not found:
-            print_error(f"[FAIL] Not Found '{prefix}' installed.")
+            print_error(f"[FAIL] No packages found with prefix '{prefix}' installed.")
+            time.sleep(2)
+            clear_screen()
             return
-        print_info(f"[OK] Found {len(found)} package:")
+        print_info(f"[OK] Found {len(found)} package(s):")
         for i, pkg in enumerate(found, 1):
             print(f"  {i}. {pkg}")
+        print("")  # tambahkan baris kosong
         confirm = input("[?] Use All Package? (y/n): ").strip().lower()
         if confirm == "y":
             config["packages"] = found
             save_config(config)
             print_success(f"{len(found)} package(s) saved.")
-            clear_screen(delay=1)
+            clear_screen(delay=2)
         else:
             print_info("[!] Canceled.")
+            clear_screen(delay=1)
     else:
         print_error("[!] Not Valid.")
+        time.sleep(1)
+        clear_screen()
 
 def input_bot_token(config):
     token = input("Bot Token [OPTIONAL]: ").strip()
