@@ -5,7 +5,7 @@ from delta_control import full_process, get_status
 from utils import (
     bold, green, red, yellow, blue, cyan, get_status_color,
     clear_screen, print_header, print_info, print_error, print_success, print_warning,
-    load_config
+    load_config, Colors
 )
 
 last_status = {}
