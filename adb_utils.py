@@ -89,17 +89,22 @@ def get_username(pkg):
     """
     Mendapatkan username dari shared_prefs dengan mencari file prefs.xml atau xml lain.
     """
-    # coba baca prefs.xml
-    out = run_root(f"cat /data/data/{pkg}/shared_prefs/prefs.xml 2>/dev/null | grep -E '<string name=\"username\">'")
+    # 1. Cukup grep kata "username" saja (jauh lebih aman dari bentrok kutip)
+    out = run_root(f"cat /data/data/{pkg}/shared_prefs/prefs.xml 2>/dev/null | grep username")
+    
+    # Biarkan regex Python yang menyeleksi dan mengambil namanya
     match = re.search(r'<string name="username">([^<]+)</string>', out)
     if match:
         return match.group(1)
-    # coba cari di semua xml
-    out2 = run_root(f"grep -r -E '<string name=\"username\">' /data/data/{pkg}/shared_prefs/ 2>/dev/null | head -1")
+        
+    # 2. Fallback jika tidak ada di prefs.xml, cari di file xml lainnya
+    out2 = run_root(f"grep -r username /data/data/{pkg}/shared_prefs/ 2>/dev/null | head -1")
     match2 = re.search(r'<string name="username">([^<]+)</string>', out2)
     if match2:
         return match2.group(1)
+        
     return None
+
 
 def get_packages_by_prefix(prefix):
     """
