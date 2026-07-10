@@ -1,74 +1,57 @@
 import time
-import os
 import sys
-from adb_utils import is_running, dump_ui
-from delta_control import full_process, get_status, get_username, rejoin
-from utils import Colors, bold, green, red, yellow, blue, cyan, magenta, get_status_color, get_ascii_art
+from adb_utils import is_running, get_username, is_foreground
+from delta_control import full_process, get_status
+from utils import (
+    bold, green, red, yellow, blue, cyan, get_status_color,
+    clear_screen, print_header, print_info, print_error, print_success, print_warning,
+    load_config
+)
 
 last_status = {}
 last_username = {}
 table_dirty = True
-rejoin_cooldown = {}
-
-def clear_screen():
-    os.system('clear' if os.name == 'posix' else 'cls')
-
-def show_loading(message, duration=1.5):
-    chars = ['⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷']
-    end_time = time.time() + duration
-    i = 0
-    while time.time() < end_time:
-        sys.stdout.write(f'\r{Colors.CYAN}{chars[i % len(chars)]}{Colors.END} {message}')
-        sys.stdout.flush()
-        i += 1
-        time.sleep(0.1)
-    sys.stdout.write('\r' + ' ' * 60 + '\r')
-    sys.stdout.flush()
 
 def print_table(packages, status, username_map, start_time, force=False):
     global table_dirty
     if not force and not table_dirty:
         return
     clear_screen()
-    print(get_ascii_art())
-    print()
-    print(f"{bold('USERNAME')}  {bold('PACKAGE')}  {bold('TIME')}  {bold('STATUS')}")
-    print("=" * 75)
+    print_header()
+    # Header tabel
+    print(f"\n{Colors.BOLD}{'#':<3} {'Username':<20} {'Time':<12} {'Status':<10}{Colors.END}")
+    print("=" * 55)
     for i, pkg in enumerate(packages, 1):
         elapsed = int(time.time() - start_time)
         h = elapsed // 3600
         m = (elapsed % 3600) // 60
         s = elapsed % 60
         time_str = f"{h}h{m:02d}m{s:02d}s"
-        username = username_map.get(pkg, f"Akun {i}")
+        username = username_map.get(pkg, f"Account {i}")
         stat = status.get(pkg, "Unknown")
         colored_status = get_status_color(stat)
-        print(f"{bold(username):<15} {pkg:<20} {bold(time_str):<12} {colored_status}")
-    print("=" * 75)
-    print(f"{Colors.WHITE}⏱ Last Update: {time.strftime('%H:%M:%S')}{Colors.END}")
-    print(f"{Colors.CYAN}📡 Monitoring {len(packages)} instances...{Colors.END}")
-    if any(s == "Kicked" for s in status.values()):
-        print(f"{Colors.YELLOW}⚠️ Ada instance yang terputus! Sedang merejoin...{Colors.END}")
+        # potong username jika terlalu panjang
+        display_username = username[:20] if len(username) > 20 else username
+        print(f"{i:<3} {display_username:<20} {bold(time_str):<12} {colored_status}")
+    print("=" * 55)
+    print_info(f"Monitoring {len(packages)} instances...")
+    print_info(f"Last update: {time.strftime('%H:%M:%S')}")
     table_dirty = False
 
-def monitor(packages, place_id, token, channel_id, interval=10):
-    global last_status, last_username, table_dirty, rejoin_cooldown
+def monitor(packages, place_id, bot_token, channel_id, private_code=None, interval=10):
+    global last_status, last_username, table_dirty
     start_time = time.time()
     status = {}
     username_map = {}
-    rejoin_cooldown = {}
 
-    show_loading("Initializing monitoring system...", 1.5)
+    print_info("Initializing monitoring...")
     for i, pkg in enumerate(packages):
-        show_loading(f"Checking {pkg}...", 0.8)
-        s = get_status(pkg)
-        status[pkg] = s
+        status[pkg] = get_status(pkg)
         uname = get_username(pkg)
-        if uname and uname != "Unknown":
+        if uname:
             username_map[pkg] = uname
         else:
-            username_map[pkg] = f"Akun {i+1}"
-        rejoin_cooldown[pkg] = 0
+            username_map[pkg] = f"Account {i+1}"
 
     last_status = status.copy()
     last_username = username_map.copy()
@@ -77,44 +60,22 @@ def monitor(packages, place_id, token, channel_id, interval=10):
 
     while True:
         changed = False
-        current_time = time.time()
         for pkg in packages:
             new_status = get_status(pkg)
-            old_status = status.get(pkg)
-
-            # --- Handle Kicked (Disconnect) ---
-            if new_status == "Kicked" and current_time - rejoin_cooldown.get(pkg, 0) > 30:
-                print(f"\n{red(bold('[!]'))} {bold(pkg)} {red('terdeteksi disconnected/kicked, merejoin...')}")
-                show_loading(f"Rejoining {pkg}...", 2)
-                
-                # Gunakan rejoin() yang lebih ringan, atau full_process() jika perlu
-                uname = rejoin(pkg, place_id)
-                if uname and uname != "Unknown":
-                    username_map[pkg] = uname
-                # Update status setelah rejoin
-                new_status = get_status(pkg)
-                rejoin_cooldown[pkg] = current_time
-                changed = True
-
-            # --- Handle Offline (restart) ---
-            if new_status == "Offline" and current_time - rejoin_cooldown.get(pkg, 0) > 30:
-                print(f"\n{red(bold('[!]'))} {bold(pkg)} {red('offline, restarting...')}")
-                show_loading(f"Restarting {pkg}...", 1.5)
-                uname = full_process(pkg, place_id, token, channel_id)
-                if uname and uname != "Unknown":
-                    username_map[pkg] = uname
-                status[pkg] = get_status(pkg)
-                changed = True
-                rejoin_cooldown[pkg] = current_time
-
-            # --- Update status biasa ---
             if new_status != status.get(pkg):
                 status[pkg] = new_status
                 changed = True
-
-            # --- Update username ---
+                if new_status == "Offline":
+                    print_warning(f"{pkg} offline, restarting...")
+                    # restart
+                    uname = full_process(pkg, place_id, bot_token, channel_id, private_code)
+                    if uname and uname != "Unknown":
+                        username_map[pkg] = uname
+                    status[pkg] = get_status(pkg)
+                    changed = True
+            # cek username berubah
             new_uname = get_username(pkg)
-            if new_uname and new_uname != "Unknown" and new_uname != username_map.get(pkg):
+            if new_uname and new_uname != username_map.get(pkg):
                 username_map[pkg] = new_uname
                 changed = True
 

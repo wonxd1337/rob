@@ -1,8 +1,8 @@
-"""
-Utility functions for colors, bold text, and ASCII art
-"""
+import json
+import os
+import sys
+import time
 
-# ANSI color codes
 class Colors:
     HEADER = '\033[95m'
     BLUE = '\033[94m'
@@ -15,8 +15,6 @@ class Colors:
     END = '\033[0m'
     WHITE = '\033[97m'
     MAGENTA = '\033[95m'
-    BLACK = '\033[30m'
-    BG_BLACK = '\033[40m'
 
 def bold(text):
     return f"{Colors.BOLD}{text}{Colors.END}"
@@ -50,8 +48,6 @@ def get_status_color(status):
         return cyan(status)
     elif status == "Background":
         return yellow(status)
-    elif status == "Kicked":
-        return red(bold(status))  # Warna merah dan bold untuk kicked
     else:
         return status
 
@@ -65,6 +61,73 @@ def get_ascii_art():
    ╚███╔███╔╝╚██████╔╝██║ ╚████║██╔╝ ██╗██████╔╝
     ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═══╝╚═╝  ╚═╝╚═════╝ 
 {Colors.END}                                                 
-{Colors.MAGENTA}⚡ DELTA EXECUTOR AUTO TOOLS v2.0 ⚡{Colors.END}
-{Colors.CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{Colors.END}
 """
+
+CONFIG_FILE = "config.json"
+
+def load_config():
+    default = {
+        "private_code": "",
+        "place_id": "",
+        "packages": [],
+        "bot_token": ""
+    }
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, "r") as f:
+                data = json.load(f)
+            for key in default:
+                if key not in data:
+                    data[key] = default[key]
+            return data
+        except:
+            return default
+    else:
+        save_config(default)
+        return default
+
+def save_config(data):
+    with open(CONFIG_FILE, "w") as f:
+        json.dump(data, f, indent=4)
+
+def clear_screen(delay=0):
+    if delay > 0:
+        time.sleep(delay)
+    os.system('clear' if os.name == 'posix' else 'cls')
+
+def show_loading(message, duration=1.5):
+    chars = ['|', '/', '-', '\\']
+    end_time = time.time() + duration
+    i = 0
+    while time.time() < end_time:
+        sys.stdout.write(f'\r{Colors.CYAN}{chars[i % len(chars)]}{Colors.END} {message}')
+        sys.stdout.flush()
+        i += 1
+        time.sleep(2.0)
+    sys.stdout.write('\r' + ' ' * 60 + '\r')
+    sys.stdout.flush()
+
+def print_header():
+    clear_screen()
+    print(get_ascii_art())
+
+def print_menu():
+    print("\n[1] Start Rejoin Tools")
+    print("[2] Input Private Server Link")
+    print("[3] Input Place ID")
+    print("[4] Input Packages")
+    print("[5] Input Bot Token (optional)")
+    print("[6] Exit")
+    print("")
+
+def print_info(msg):
+    print(f"{Colors.CYAN}[*]{Colors.END} {msg}")
+
+def print_success(msg):
+    print(f"{Colors.GREEN}[+]{Colors.END} {msg}")
+
+def print_error(msg):
+    print(f"{Colors.RED}[-]{Colors.END} {msg}")
+
+def print_warning(msg):
+    print(f"{Colors.YELLOW}[!]{Colors.END} {msg}")

@@ -4,6 +4,8 @@ from adb_utils import dump_ui, tap
 
 def find(text):
     xml = dump_ui()
+    if not xml:
+        return None
     p = r'<node.*?(?:text|content-desc)="([^"]*{}[^"]*?)".*?bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"'.format(re.escape(text))
     m = re.search(p, xml, re.I | re.DOTALL)
     if m:
@@ -13,6 +15,8 @@ def find(text):
 
 def find_edit():
     xml = dump_ui()
+    if not xml:
+        return None
     m = re.search(r'<node.*?class="android\.widget\.EditText".*?bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', xml, re.DOTALL)
     if m:
         x1, y1, x2, y2 = map(int, m.groups())
@@ -24,6 +28,8 @@ def find_btn(text):
 
 def get_username_from_ui():
     xml = dump_ui()
+    if not xml:
+        return None
     pattern = r'<node.*?text="([^"]*@[^"]*?)".*?bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"'
     match = re.search(pattern, xml, re.DOTALL)
     if match:
@@ -32,6 +38,8 @@ def get_username_from_ui():
 
 def is_delta_visible():
     xml = dump_ui()
+    if not xml:
+        return False
     if "ZETSU DELTA" in xml or "LITE" in xml:
         return True
     if "Receive Key" in xml or "Get Key" in xml:
@@ -56,21 +64,14 @@ def is_in_lobby():
             return True
     return False
 
-def is_disconnected_screen():
-    """
-    Deteksi apakah sedang berada di layar disconnect/kicked.
-    Cari tombol Reconnect dan/atau teks Disconnected.
-    """
+def is_key_requested():
     xml = dump_ui()
-    # Cari tombol Reconnect (paling khas)
-    if "Hubungkan Kembali" in xml:
+    if not xml:
+        return False
+    if re.search(r'(?:text|content-desc)="(?:Get|Receive)\s*Key"', xml, re.I):
         return True
-    # Atau jika ada "Disconnected" dan "Leave" bersamaan (lebih aman)
-    if "Hubungan Kembali" in xml and "Keluar" in xml:
+    has_edit = re.search(r'class="android\.widget\.EditText"', xml)
+    has_continue = re.search(r'(?:text|content-desc)="Continue"', xml, re.I)
+    if has_edit and has_continue:
         return True
-    # Tambahan kata kunci untuk berbagai jenis error
-    keywords = ["Koneksi Terputus", "Disconnected", "Kicked", "Error Code"]
-    for kw in keywords:
-        if kw.lower() in xml.lower():
-            return True
     return False

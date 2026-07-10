@@ -1,6 +1,7 @@
 import subprocess
 import time
 import re
+import os
 
 def run(cmd):
     try:
@@ -41,8 +42,13 @@ def set_clipboard(text):
     run(f"service call clipboard 2 i32 0 s16 '{text_escaped}'")
 
 def dump_ui():
-    run("uiautomator dump /data/local/tmp/ui.xml")
-    return run("cat /data/local/tmp/ui.xml")
+    run_root("rm -f /data/local/tmp/ui.xml")
+    run_root("uiautomator dump /data/local/tmp/ui.xml")
+    time.sleep(0.5)
+    xml = run("cat /data/local/tmp/ui.xml")
+    if not xml:
+        xml = run_root("cat /data/local/tmp/ui.xml")
+    return xml
 
 def is_running(pkg):
     out = run_root(f"ps -A | grep {pkg}")
@@ -51,28 +57,24 @@ def is_running(pkg):
     out2 = run_root(f"pidof {pkg}")
     if out2:
         return True
-    ui = dump_ui()
-    if "ZETSU DELTA" in ui or "LITE" in ui:
-        return True
     return False
 
 def is_foreground(pkg):
-    out = run_root("dumpsys window windows | grep -E 'mCurrentFocus|mFocusedApp'")
-    if pkg in out:
-        return True
-    out2 = run_root("dumpsys activity activities | grep -E 'mFocusedApp|mResumedActivity'")
-    if pkg in out2:
-        return True
-    return False
+    # gunakan perintah yang lebih komprehensif
+    out = run_root("dumpsys activity activities | grep -iE 'mResumedActivity|topResumedActivity|mCurrentFocus'")
+    return pkg in out
 
 def get_foreground_app():
-    out = run_root("dumpsys window windows | grep -E 'mCurrentFocus|mFocusedApp'")
-    match = re.search(r'([a-zA-Z0-9._]+)/(?:[a-zA-Z0-9._]+)', out)
+    out = run_root("dumpsys activity activities | grep -iE 'mResumedActivity|topResumedActivity|mCurrentFocus'")
+    # coba ekstrak package name
+    match = re.search(r'([a-zA-Z0-9._]+)/', out)
     if match:
         return match.group(1)
     return None
 
 def start_app(pkg):
+    run(f"am start -n {pkg}/.RobloxActivity")  # coba langsung ke activity tertentu
+    # fallback
     run(f"am start -p {pkg}")
 
 def wait_app(pkg, timeout=10):
@@ -82,10 +84,30 @@ def wait_app(pkg, timeout=10):
         time.sleep(1)
     return False
 
-def get_username_from_prefs(pkg):
-    pref_file = f"/data/data/{pkg}/shared_prefs/com.roblox.client.preferences.xml"
-    out = run_root(f"cat {pref_file} 2>/dev/null | grep -E 'username|UserName'")
-    match = re.search(r'<string name="(?:username|UserName)">([^<]+)</string>', out)
+def get_username(pkg):
+    """
+    Mendapatkan username dari shared_prefs dengan mencari file prefs.xml atau xml lain.
+    """
+    # coba baca prefs.xml
+    out = run_root(f"cat /data/data/{pkg}/shared_prefs/prefs.xml 2>/dev/null | grep -E '<string name=\"username\">'")
+    match = re.search(r'<string name="username">([^<]+)</string>', out)
     if match:
         return match.group(1)
+    # coba cari di semua xml
+    out2 = run_root(f"grep -r -E '<string name=\"username\">' /data/data/{pkg}/shared_prefs/ 2>/dev/null | head -1")
+    match2 = re.search(r'<string name="username">([^<]+)</string>', out2)
+    if match2:
+        return match2.group(1)
     return None
+
+def get_packages_by_prefix(prefix):
+    """
+    Mengembalikan daftar package yang terinstal dengan prefix tertentu.
+    """
+    out = run_root(f"pm list packages | grep '{prefix}'")
+    packages = []
+    for line in out.splitlines():
+        if line.startswith("package:"):
+            pkg = line.replace("package:", "").strip()
+            packages.append(pkg)
+    return packages

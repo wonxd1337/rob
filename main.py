@@ -1,46 +1,184 @@
 import time
-from config import PACKAGES_FILE, CHANNEL_ID, PLACE_ID, DELAY, INTERVAL
-from delta_control import full_process, get_username
-from monitor import monitor, show_loading
-from utils import get_ascii_art, Colors, bold, green, red, yellow, cyan
+import sys
+import re
+from utils import (
+    load_config, clear_screen, save_config, print_header, print_menu,
+    print_info, print_error, print_success, print_warning,
+    show_loading, bold, green, red, yellow, cyan, Colors
+)
+from adb_utils import get_packages_by_prefix
+from delta_control import full_process
+from monitor import monitor
+from config import CHANNEL_ID  
+
+def extract_private_code(link):
+    match = re.search(r'[?&]code=([^&]+)', link)
+    if match:
+        return match.group(1)
+    return None
+
+def input_private_server(config):
+    link = input("[+] Server Link: ").strip()
+    code = extract_private_code(link)
+    if code:
+        config["private_code"] = code
+        config["place_id"] = ""  # prioritas private
+        save_config(config)
+        print_success(f"Private server code: {code}")
+    else:
+        print_error("[!] Not Valid.")
+        clear_screen(delay=1)
+
+def input_place_id(config):
+    print("\n[X] Choose :")
+    print("1. Fish IT")
+    print("2. Grow A Garden 2")
+    print("3. Grow A Garden")
+    print("4. Other Games (input manual)")
+    choice = input("root@wonxd1337~ : ").strip()
+    place_id = ""
+    if choice == "1":
+        place_id = "121864768012064"
+    elif choice == "2":
+        place_id = "97598239454123"
+    elif choice == "3":
+        place_id = "126884695634066"
+    elif choice == "4":
+        place_id = input("[+] Enter Place ID: ").strip()
+        if not place_id.isdigit():
+            print_error("[!] Place ID must be number.")
+            clear_screen(delay=1)
+            return
+    else:
+        print_error("[FAIL] Not Valid.")
+        clear_screen(delay=1)
+        return
+    config["place_id"] = place_id
+    config["private_code"] = ""  
+    save_config(config)
+    print_success(f"[+] Place ID saved: {place_id}")
+    clear_screen(delay=2)
+
+def input_packages(config):
+    print("\n[X] Choose:")
+    print("1. By Name (separated with commas)")
+    print("2. By Prefix")
+    method = input("root@wonxd1337~ : ").strip()
+    if method == "1":
+        print("\nExample format: com.roblox.clienu, com.roblox.clientv, com.roblox.clientw")
+        print("Separate multiple packages with commas")
+        raw = input("Name Package : ").strip()
+        if raw:
+            packages = [p.strip() for p in raw.split(",") if p.strip()]
+            config["packages"] = packages
+            save_config(config)
+            print_success(f"{len(packages)} package(s) saved.")
+            clear_screen(delay=2)
+        else:
+            print_error("[FAIL] Enter Package First.")
+            clear_screen(delay=1)
+    elif method == "2":
+        prefix = input("Prefix Package (com.roblox): ").strip()
+        if not prefix:
+            print_error("[!] Prefix cannot empty.")
+            clear_screen(delay=1)
+            return
+        found = get_packages_by_prefix(prefix)
+        if not found:
+            print_error(f"[FAIL] Not Found '{prefix}' installed.")
+            return
+        print_info(f"[OK] Found {len(found)} package:")
+        for i, pkg in enumerate(found, 1):
+            print(f"  {i}. {pkg}")
+        confirm = input("[?] Use All Package? (y/n): ").strip().lower()
+        if confirm == "y":
+            config["packages"] = found
+            save_config(config)
+            print_success(f"{len(found)} package(s) saved.")
+            clear_screen(delay=1)
+        else:
+            print_info("[!] Canceled.")
+    else:
+        print_error("[!] Not Valid.")
+
+def input_bot_token(config):
+    token = input("Bot Token [OPTIONAL]: ").strip()
+    config["bot_token"] = token
+    save_config(config)
+    if token:
+        print_success("[OK] Bot token saved.")
+        clear_screen(delay=1)
+    else:
+        print_info("Bot Token Empty [AUTO KEY OFF].")
+
+def start_tools(config):
+    # validasi
+    if not config.get("packages"):
+        print_error("[!] Enter Package First.")
+        clear_screen(delay=1)
+        return
+    if not config.get("private_code") and not config.get("place_id"):
+        print_error("[!] Choose Private Server or Place ID First.")
+        clear_screen(delay=1)
+        return
+
+    print_info("Starting...")
+    # reload config untuk memastikan yang terbaru
+    config = load_config()
+    packages = config["packages"]
+    private_code = config.get("private_code", "")
+    place_id = config.get("place_id", "")
+    bot_token = config.get("bot_token", "")
+    channel_id = CHANNEL_ID
+
+    # tampilkan info
+    print_info(f"Package(s): {', '.join(packages)}")
+    if private_code:
+        print_info(f"[MODE] Private Server (code: {private_code})")
+    else:
+        print_info(f"[MODE] Public Game (Place ID: {place_id})")
+    if bot_token:
+        print_info("[!] Bot Token Found.")
+    else:
+        print_info("[!] Bot Token Not Found ( AUTO KEY OFF ).")
+
+    # jalankan monitor
+    try:
+        monitor(packages, place_id, bot_token, channel_id, private_code)
+    except KeyboardInterrupt:
+        print_warning("[!] STOPPED, Back To Menu.")
+        return
 
 def main():
-    print(get_ascii_art())
-    print()
-    token = input(f"{bold('Token Discord')}: ").strip()
-    if not token:
-        print(red("[!] Token tidak boleh kosong!"))
-        return
-    show_loading("Reading package list...", 1)
-    with open(PACKAGES_FILE, "r") as f:
-        packages = [line.strip() for line in f if line.strip()]
-    if not packages:
-        print(red("[!] packages.txt kosong!"))
-        return
-    print(f"\n{cyan('[*]')} Found {bold(str(len(packages)))} packages to process")
-    print(f"{cyan('[*]')} Place ID: {bold(PLACE_ID)}")
-    print()
-    username_map = {}
-    print(f"{bold('Starting up instances...')}\n")
-    for i, pkg in enumerate(packages):
-        print(f"[{i+1}/{len(packages)}] Processing {bold(pkg)}...")
-        show_loading(f"Opening {pkg}...", 1.5)
-        uname = full_process(pkg, PLACE_ID, token, CHANNEL_ID)
-        if uname and uname != "Unknown":
-            username_map[pkg] = uname
-            print(f"    {green('✓')} Username: {bold(uname)}")
+    config = load_config()
+    while True:
+        print_header()
+        print_menu()
+        choice = input("root@wonxd1337~ : ").strip()
+        if choice == "1":
+            start_tools(config)
+        elif choice == "2":
+            input_private_server(config)
+            config = load_config()  # refresh
+        elif choice == "3":
+            input_place_id(config)
+            config = load_config()
+        elif choice == "4":
+            input_packages(config)
+            config = load_config()
+        elif choice == "5":
+            input_bot_token(config)
+            config = load_config()
+        elif choice == "6":
+            print_info("Exit.")
+            break
         else:
-            username_map[pkg] = f"Akun {i+1}"
-            print(f"    {yellow('⚠')} Username: {yellow('Unknown')}")
-        time.sleep(DELAY)
-    print(f"\n{green(bold('✓ Startup completed!'))}")
-    show_loading("Starting monitoring...", 1)
-    monitor(packages, PLACE_ID, token, CHANNEL_ID, INTERVAL)
+            print_error("[!] Not Valid, Press Enter To Back.")
+            input()
 
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print(f"\n{red(bold('[!] Interrupted by user'))}")
-    except Exception as e:
-        print(f"\n{red(bold('[!] Error:'))} {e}")
+        print("\n[!] Interrupted by user. Exiting.")
+        sys.exit(0)
