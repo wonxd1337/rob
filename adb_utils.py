@@ -108,7 +108,10 @@ def get_packages_by_prefix(prefix):
     packages = []
     if out:
         for line in out.splitlines():
+            line = line.strip()
             if line.startswith("package:"):
                 pkg = line.replace("package:", "").strip()
-                packages.append(pkg)
+                pkg = pkg.replace('\r', '').replace('\n', '')
+                if pkg:
+                    packages.append(pkg)
     return packages

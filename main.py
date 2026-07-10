@@ -64,6 +64,7 @@ def input_packages(config):
     print("1. By Name (separated with commas)")
     print("2. By Prefix")
     method = input("root@wonxd1337~ : ").strip()
+    
     if method == "1":
         print("\nExample format: com.roblox.clienu, com.roblox.clientv, com.roblox.clientw")
         print("Separate multiple packages with commas")
@@ -77,30 +78,39 @@ def input_packages(config):
         else:
             print_error("[FAIL] Enter Package First.")
             clear_screen(delay=1)
+            
     elif method == "2":
         prefix = input("Prefix Package (com.roblox): ").strip()
         if not prefix:
             print_error("[!] Prefix cannot empty.")
-            time.sleep(1)  # tambahkan delay agar pesan terbaca
+            time.sleep(1)
             clear_screen()
             return
+            
         print_info(f"Searching for packages with prefix: {prefix}...")
         found = get_packages_by_prefix(prefix)
+        
         if not found:
             print_error(f"[FAIL] No packages found with prefix '{prefix}' installed.")
             time.sleep(2)
             clear_screen()
             return
+            
         print_info(f"[OK] Found {len(found)} package(s):")
         for i, pkg in enumerate(found, 1):
-            print(f"  {i}. {pkg}")
-        print("")  # tambahkan baris kosong
+            # Bersihkan kemungkinan carriage return atau spasi berlebih
+            clean_pkg = pkg.strip()
+            print(f"  {i}. {clean_pkg}")
+        
+        print("")  # baris kosong agar prompt terpisah
+        sys.stdout.flush()  # paksa output langsung tampil
+        
+        # Sekarang input seharusnya berfungsi
         confirm = input("[?] Use All Package? (y/n): ").strip().lower()
         if confirm == "y":
             config["packages"] = found
             save_config(config)
             print_success(f"{len(found)} package(s) saved.")
-            clear_screen(delay=2)
         else:
             print_info("[!] Canceled.")
             clear_screen(delay=1)
