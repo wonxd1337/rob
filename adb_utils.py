@@ -5,17 +5,18 @@ import os
 
 def run(cmd):
     try:
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, stdin=subprocess.DEVNULL)
         if result.stdout.strip():
             return result.stdout.strip()
-        result2 = subprocess.run(f"su -c '{cmd}'", shell=True, capture_output=True, text=True)
+        
+        result2 = subprocess.run(f"su -c '{cmd}'", shell=True, capture_output=True, text=True, stdin=subprocess.DEVNULL)
         return result2.stdout.strip()
     except:
         return ""
 
 def run_root(cmd):
     try:
-        result = subprocess.run(f"su -c '{cmd}'", shell=True, capture_output=True, text=True)
+        result = subprocess.run(f"su -c '{cmd}'", shell=True, capture_output=True, text=True, stdin=subprocess.DEVNULL)
         return result.stdout.strip()
     except:
         return ""
